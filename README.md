@@ -110,6 +110,29 @@ Please visit the [VILA-M3 Demo](https://vila-m3-demo.monai.ngc.nvidia.com/) to t
     ```
 > For details, see the available [commmandline arguments](./m3/demo/gradio_m3.py#L855).
 
+### Running RESTful API Demo
+
+1. Navigate to the demo directory:
+    ```bash
+    cd m3/demo
+    ```
+
+1. Create .env file
+    ```
+    RELATIVE_DIRECTORY = images/input
+    LOGFILE = log/main.log
+    PORT = 8585
+    ```
+1. Create image temporary directory and log directory
+    ```bash
+    mkdir -p images/input
+    mkdir log
+    ```
+
+1. Start API service
+    ```bash
+    python server.py
+    ```
 
 #### Adding your own expert model
 - This is still a work in progress. Please refer to the [README](m3/demo/experts/README.md) for more details.
