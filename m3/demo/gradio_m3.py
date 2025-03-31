@@ -39,7 +39,14 @@ load_dotenv()
 
 # Set up the logger
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+
+logfile = os.getenv("LOGFILE")
+logging.basicConfig(
+    filename=logfile,
+    level=logging.DEBUG,
+    format="%(asctime)s,%(msecs)d %(levelname)-8s [%(pathname)s:%(lineno)d in " "function %(funcName)s] %(message)s",
+    datefmt="%Y-%m-%d:%H:%M:%S",
+)
 
 # Create console handler and set level to debug
 ch = logging.StreamHandler()
@@ -429,6 +436,7 @@ class M3Generator:
         img_file = CACHED_IMAGES.get(sv.image_url, None, list_return=True)
 
         if isinstance(img_file, str):
+            logger.debug(f"single image")
             if "<image>" not in prompt:
                 _prompt = model_cards + "<image>" + mod_msg + prompt
                 sv.sys_msgs_to_hide.append(model_cards + "<image>" + mod_msg)
@@ -445,6 +453,7 @@ class M3Generator:
             else:
                 chat_history.append(_prompt, image_path=img_file)
         elif isinstance(img_file, list):
+            logger.debug(f"multiple images")
             # multi-modal images
             prompt = (
                 prompt.replace("<image>", "") if "<image>" in prompt else prompt
