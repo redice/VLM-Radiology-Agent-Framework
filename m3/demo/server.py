@@ -1,5 +1,6 @@
 import argparse
 import logging
+import tempfile
 import os
 import time
 
@@ -11,11 +12,14 @@ from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from generator import ChatHistory, M3Generator, SessionVariables, new_session_variables
 from pydantic import HttpUrl
+from experts.utils import ImageCache
 
 load_dotenv()
 
 logger = logging.getLogger(__name__)
 relativeDir = os.getenv("RELATIVE_DIRECTORY")
+
+CACHED_IMAGES = ImageCache(cache_dir=tempfile.mkdtemp())
 
 global generator
 
@@ -51,19 +55,21 @@ def create_demo(source, model_path, conv_mode):
 
 
 @app.post("/execute")
-async def execute_api(image_file: UploadFile = File(...), prompt_text: str = Form(...)):
+async def execute_api(image_files: list[UploadFile] = File(...), prompt_text: str = Form(...)):
     try:
         sv = SessionVariables()
         chat_history = ChatHistory()
-        # Save uploaded image to a temporary file
-        temp_image_path = relativeDir + "/" + image_file.filename
-        with open(temp_image_path, "wb") as buffer:
-            buffer.write(await image_file.read())
 
-        logger.debug(f"Received image: {image_file.filename}, prompt: {prompt_text}")
+        file_paths = []
+        for image_file in image_files:
+            temp_image_path = relativeDir + "/" + image_file.filename
+            file_paths.append(temp_image_path)
+        logger.debug(f"Received images: {file_paths}, prompt: {prompt_text}")
 
-        sv.image_url = temp_image_path
+        sv.image_url = file_paths
         sv.slice_index = 57  # Example slice index (adjust as needed) - This should come from Slicer!!!
+        # Save uploaded images to a temporary file
+        CACHED_IMAGES.cache(sv.image_url)
 
         sv, chat_history = generator.process_prompt(prompt_text, sv, chat_history)
 

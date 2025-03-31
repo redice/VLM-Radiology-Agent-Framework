@@ -1,5 +1,6 @@
 import logging
 import tempfile
+import os
 import time
 from copy import deepcopy
 
@@ -297,8 +298,7 @@ class M3Generator:
 
     def process_prompt(self, prompt, sv, chat_history):
         """Process the prompt and return the result. Inputs/outputs are the gradio components."""
-        logger.debug(f"Process the image and return the result")
-        print("==> process_prompt")
+        logger.debug(f"==> Process the image and return the result")
 
         if sv.temp_working_dir is None:
             sv.temp_working_dir = tempfile.mkdtemp()
@@ -311,7 +311,9 @@ class M3Generator:
 
         model_cards = sv.sys_msg if sv.use_model_cards else ""
 
+        logger.debug(f"image_url: {sv.image_url}")
         img_file = CACHED_IMAGES.get(sv.image_url, None, list_return=True)
+        logger.debug(f"img_file: {img_file}")
 
         if isinstance(img_file, str):
             if "<image>" not in prompt:
@@ -413,5 +415,5 @@ class M3Generator:
             img_urls_or_paths=sv.img_urls_or_paths,
         )
 
-        print("<== process_prompt")
+        logger.debug(f"<== Process the image and return the result")
         return (new_sv, chat_history)
