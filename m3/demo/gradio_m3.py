@@ -433,7 +433,9 @@ class M3Generator:
 
         model_cards = sv.sys_msg if sv.use_model_cards else ""
 
+        logger.debug(f"image_url: {sv.image_url}")
         img_file = CACHED_IMAGES.get(sv.image_url, None, list_return=True)
+        logger.debug(f"img_file: {img_file}")
 
         if isinstance(img_file, str):
             logger.debug(f"single image")
@@ -493,7 +495,7 @@ class M3Generator:
             try:
                 if sv.image_url is None:
                     logger.debug(
-                        "Image URL is None. Try restoring the image URL from the backup to continue expert processing."
+                        f"Image URL is None. Try restoring the image URL from the backup to continue expert processing."
                     )
                     sv.restore_from_backup("image_url")
                     sv.restore_from_backup("slice_index")
@@ -735,7 +737,9 @@ def upload_file(files, sv):
 
 def create_demo(source, model_path, conv_mode, server_port):
     """Main function to create the Gradio interface"""
+    logger.debug(f"==> create_demo")
     generator = M3Generator(source=source, model_path=model_path, conv_mode=conv_mode)
+    logger.debug(f"after creating generator")
 
     with gr.Blocks(css=CSS_STYLES) as demo:
         gr.HTML(TITLE, label="Title")
@@ -867,6 +871,8 @@ def create_demo(source, model_path, conv_mode, server_port):
                 image_slider,
             ],
         )
+
+        logger.debug(f"<== create_demo")
         demo.queue()
         demo.launch(server_name="0.0.0.0", server_port=server_port)
 
@@ -893,7 +899,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--port",
         type=int,
-        default=7860,
+        default=os.getenv("PORT"),
         help="The port to run the Gradio server on.",
     )
     parser.add_argument(
