@@ -83,7 +83,7 @@ async def execute_api(image_file: UploadFile = File(...), prompt_text: str = For
         }
 
         # Clean up temporary file
-        # os.remove(temp_image_path)
+        os.remove(temp_image_path)
 
         return JSONResponse(content=response)
 
@@ -128,7 +128,9 @@ async def execute_api(image_files: List[UploadFile] = File(...), prompt_text: st
         }
 
         # Clean up temporary file
-        # os.remove(temp_image_path)
+        for image_file in image_files:
+            temp_image_path = os.path.join(currentDir, relativeDir, image_file.filename)
+            os.remove(temp_image_path)
 
         return JSONResponse(content=response)
 
