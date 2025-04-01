@@ -15,8 +15,12 @@ from llava.conversation import SeparatorStyle, conv_templates
 from llava.mm_utils import KeywordsStoppingCriteria, get_model_name_from_path, process_images, tokenizer_image_token
 from llava.model.builder import load_pretrained_model
 from llava.utils import disable_torch_init
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logger = logging.getLogger(__name__)
+relativeDir = os.getenv("RELATIVE_DIRECTORY")
 
 IMG_URLS_OR_PATHS = {
     "CT Sample 1": "https://developer.download.nvidia.com/assets/Clara/monai/samples/ct_liver_0.nii.gz",
@@ -228,22 +232,24 @@ class M3Generator:
         logger.debug(f"Prompt input: {prompt_text}")
 
         if len(images) > 0:
+            logger.debug(f"33333")
             images_tensor = process_images(images, self.image_processor, self.model.config).to(
                 self.model.device, dtype=torch.float16
             )
         images_input = [images_tensor] if len(images) > 0 else None
-
+        logger.debug(f"44444")
         input_ids = (
             tokenizer_image_token(prompt_text, self.tokenizer, IMAGE_TOKEN_INDEX, return_tensors="pt")
             .unsqueeze(0)
             .to(self.model.device)
         )
-
+        logger.debug(f"55555")
         stop_str = conv.sep if conv.sep_style != SeparatorStyle.TWO else conv.sep2
         keywords = [stop_str]
         stopping_criteria = KeywordsStoppingCriteria(keywords, self.tokenizer, input_ids)
 
         start_time = time.time()
+        logger.debug(f"66666")
         with torch.inference_mode():
             output_ids = self.model.generate(
                 input_ids,
@@ -299,7 +305,7 @@ class M3Generator:
     def process_prompt(self, prompt, sv, chat_history):
         """Process the prompt and return the result. Inputs/outputs are the gradio components."""
         logger.debug(f"==> Process the image and return the result")
-
+        logger.debug(f"first image: {sv.image_url}")
         if sv.temp_working_dir is None:
             sv.temp_working_dir = tempfile.mkdtemp()
 
@@ -308,14 +314,15 @@ class M3Generator:
         else:
             modality = sv.modality_prompt
         mod_msg = f"This is a {modality} image.\n" if modality != "Unknown" else ""
+        logger.debug(f"mod_msg: {mod_msg}")
 
         model_cards = sv.sys_msg if sv.use_model_cards else ""
 
-        logger.debug(f"image_url: {sv.image_url}")
-        img_file = CACHED_IMAGES.get(sv.image_url, None, list_return=True)
+        img_file = sv.image_url
         logger.debug(f"img_file: {img_file}")
 
         if isinstance(img_file, str):
+            logger.debug(f"single image")
             if "<image>" not in prompt:
                 _prompt = model_cards + "<image>" + mod_msg + prompt
                 sv.sys_msgs_to_hide.append(model_cards + "<image>" + mod_msg)
@@ -332,6 +339,7 @@ class M3Generator:
             else:
                 chat_history.append(_prompt, image_path=img_file)
         elif isinstance(img_file, list):
+            logger.debug(f"multiple images")
             # multi-modal images
             prompt = (
                 prompt.replace("<image>", "") if "<image>" in prompt else prompt
@@ -339,7 +347,7 @@ class M3Generator:
             special_token = "T1(contrast enhanced): <image>, T1: <image>, T2: <image>, FLAIR: <image> "
             mod_msg = f"These are different {modality} modalities.\n"
             _prompt = model_cards + special_token + mod_msg + prompt
-            image_paths = [os.path.join(CACHED_IMAGES.dir(), get_slice_filenames(f, sv.slice_index)) for f in img_file]
+            image_paths = [os.path.join(relativeDir, get_slice_filenames(f, sv.slice_index)) for f in img_file]
             chat_history.append(_prompt, image_path=image_paths)
             sv.sys_msgs_to_hide.append(model_cards + special_token + mod_msg)
         elif img_file is None:

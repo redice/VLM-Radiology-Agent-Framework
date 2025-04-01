@@ -65,17 +65,18 @@ logger.addHandler(ch)
 logging.getLogger("gradio").setLevel(logging.WARNING)
 
 # Sample images dictionary. It accepts either a URL or a local path.
+# IMG_URLS_OR_PATHS = {}
 IMG_URLS_OR_PATHS = {
-    "CT Sample 1": "https://developer.download.nvidia.com/assets/Clara/monai/samples/ct_liver_0.nii.gz",
-    "CT Sample 2": "https://developer.download.nvidia.com/assets/Clara/monai/samples/ct_sample.nii.gz",
+    # "CT Sample 1": "https://developer.download.nvidia.com/assets/Clara/monai/samples/ct_liver_0.nii.gz",
+    # "CT Sample 2": "https://developer.download.nvidia.com/assets/Clara/monai/samples/ct_sample.nii.gz",
     "MRI Sample 1": [
         "https://developer.download.nvidia.com/assets/Clara/monai/samples/mri_Brats18_2013_31_1_t1.nii.gz",
         "https://developer.download.nvidia.com/assets/Clara/monai/samples/mri_Brats18_2013_31_1_t1ce.nii.gz",
         "https://developer.download.nvidia.com/assets/Clara/monai/samples/mri_Brats18_2013_31_1_t2.nii.gz",
         "https://developer.download.nvidia.com/assets/Clara/monai/samples/mri_Brats18_2013_31_1_flair.nii.gz",
     ],
-    "Chest X-ray Sample 1": "https://developer.download.nvidia.com/assets/Clara/monai/samples/cxr_00026451_030.jpg",
-    "Chest X-ray Sample 2": "https://developer.download.nvidia.com/assets/Clara/monai/samples/cxr_00029943_005.jpg",
+    # "Chest X-ray Sample 1": "https://developer.download.nvidia.com/assets/Clara/monai/samples/cxr_00026451_030.jpg",
+    # "Chest X-ray Sample 2": "https://developer.download.nvidia.com/assets/Clara/monai/samples/cxr_00029943_005.jpg",
 }
 
 MODEL_CARDS = "Here is a list of available expert models:\n<BRATS(args)> Modality: MRI, Task: segmentation, Overview: A pre-trained model for volumetric (3D) segmentation of brain tumor subregions from multimodal MRIs based on BraTS 2018 data, Accuracy: Tumor core (TC): 0.8559 - Whole tumor (WT): 0.9026 - Enhancing tumor (ET): 0.7905 - Average: 0.8518, Valid args are: None\n<VISTA3D(args)> Modality: CT, Task: segmentation, Overview: domain-specialized interactive foundation model developed for segmenting and annotating human anatomies with precision, Accuracy: 127 organs: 0.792 Dice on average, Valid args are: 'everything', 'hepatic tumor', 'pancreatic tumor', 'lung tumor', 'bone lesion', 'organs', 'cardiovascular', 'gastrointestinal', 'skeleton', or 'muscles'\n<VISTA2D(args)> Modality: cell imaging, Task: segmentation, Overview: model for cell segmentation, which was trained on a variety of cell imaging outputs, including brightfield, phase-contrast, fluorescence, confocal, or electron microscopy, Accuracy: Good accuracy across several cell imaging datasets, Valid args are: None\n<CXR(args)> Modality: chest x-ray (CXR), Task: classification, Overview: pre-trained model which are trained on large cohorts of data, Accuracy: Good accuracy across several diverse chest x-rays datasets, Valid args are: None\nGive the model <NAME(args)> when selecting a suitable expert model.\n"
@@ -417,18 +418,21 @@ class M3Generator:
     def process_prompt(self, prompt, sv, chat_history):
         """Process the prompt and return the result. Inputs/outputs are the gradio components."""
         logger.debug(f"Process the image and return the result")
-
+        logger.debug(f"the image: {sv.image_url}")
         if not sv.interactive:
             # Do not process the prompt if the image is not provided
             return None, sv, chat_history, "Please select an image", "Please select an image"
 
         if sv.temp_working_dir is None:
             sv.temp_working_dir = tempfile.mkdtemp()
-
+        
         if sv.modality_prompt == "Auto":
             modality = get_modality(sv.image_url, text=prompt)
         else:
             modality = sv.modality_prompt
+        
+        logger.debug(f"modality: {modality}")
+
         mod_msg = f"This is a {modality} image.\n" if modality != "Unknown" else ""
 
         model_cards = sv.sys_msg if sv.use_model_cards else ""
@@ -731,6 +735,7 @@ def upload_file(files, sv):
     new_image_dropdown = gr.Dropdown(
         label="Select an image", choices=["Please select .."] + list(sv.img_urls_or_paths.keys())
     )
+    logger.debug(f"sv.img_urls_or_paths: {sv.img_urls_or_paths}")
     CACHED_IMAGES.cache(sv.img_urls_or_paths)
     return sv, new_image_dropdown
 

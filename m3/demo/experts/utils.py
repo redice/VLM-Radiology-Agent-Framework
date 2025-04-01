@@ -157,6 +157,7 @@ def _get_modality_url(image_url_or_path: str | None):
     If the URL or file path contains ".nii.gz" and contain "mri_", then it is MRI, else it is CT.
     If it contains "cxr_" then it is CXR, otherwise it is Unknown.
     """
+    logger.debug(f"==> _get_modality_url: image_url_or_path: {image_url_or_path}")
     if isinstance(image_url_or_path, list) and len(image_url_or_path) > 0:
         image_url_or_path = image_url_or_path[0]
     if not isinstance(image_url_or_path, str):
@@ -174,10 +175,13 @@ def _get_modality_url(image_url_or_path: str | None):
 
 def _get_modality_text(text: str):
     """Get the modality from the text"""
+    logger.debug(f"==> _get_modality_text: text: {text}")
     if not text:
         return "Unknown"
+    logger.debug(f"121212")
     for keyword, modality in MODALITY_MAP.items():
         if keyword.lower() in text.lower():
+            logger.debug(f"keyword.lower: {keyword.lower()}, text.lower: {text.lower()}")
             return modality
     return "Unknown"
 

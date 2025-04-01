@@ -3,6 +3,7 @@ import logging
 import tempfile
 import os
 import time
+from typing import List
 
 import requests
 import uvicorn
@@ -12,14 +13,12 @@ from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from generator import ChatHistory, M3Generator, SessionVariables, new_session_variables
 from pydantic import HttpUrl
-from experts.utils import ImageCache
 
 load_dotenv()
 
 logger = logging.getLogger(__name__)
+currentDir = os.getcwd()
 relativeDir = os.getenv("RELATIVE_DIRECTORY")
-
-CACHED_IMAGES = ImageCache(cache_dir=tempfile.mkdtemp())
 
 global generator
 
@@ -53,23 +52,65 @@ def create_demo(source, model_path, conv_mode):
 
     return generator
 
+@app.post("/single")
+async def execute_api(image_file: UploadFile = File(...), prompt_text: str = Form(...)):
+    try:
+        sv = SessionVariables()
+        chat_history = ChatHistory()
+
+        temp_image_path = os.path.join(currentDir, relativeDir, image_file.filename)
+        with open(temp_image_path, "wb") as buffer:
+            buffer.write(await image_file.read())
+
+        logger.debug(f"Received images: {temp_image_path}, prompt: {prompt_text}")
+
+        sv.image_url = temp_image_path
+        sv.slice_index = 57  # Example slice index (adjust as needed) - This should come from Slicer!!!
+
+        sv, chat_history = generator.process_prompt(prompt_text, sv, chat_history)
+
+        response_message = chat_history.messages[-1] if chat_history.messages else "No response generated"
+
+        response = {
+            "id": "chatcmpl-" + os.urandom(12).hex(),
+            "object": "chat.completion",
+            "created": int(time.time()),
+            "model": "vila-m3",
+            "choices": [
+                {"index": 0, "message": {"role": "assistant", "content": response_message}, "finish_reason": "stop"}
+            ],
+            "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+        }
+
+        # Clean up temporary file
+        # os.remove(temp_image_path)
+
+        return JSONResponse(content=response)
+
+    except FileNotFoundError:
+        logger.error("Image file not found.")
+        raise HTTPException(status_code=404, detail="Image file not found")
+
+    except Exception as e:
+        logger.error(f"Error processing request: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/execute")
-async def execute_api(image_files: list[UploadFile] = File(...), prompt_text: str = Form(...)):
+async def execute_api(image_files: List[UploadFile] = File(...), prompt_text: str = Form(...)):
     try:
         sv = SessionVariables()
         chat_history = ChatHistory()
 
         file_paths = []
         for image_file in image_files:
-            temp_image_path = relativeDir + "/" + image_file.filename
+            temp_image_path = os.path.join(currentDir, relativeDir, image_file.filename)
+            with open(temp_image_path, "wb") as buffer:
+                buffer.write(await image_file.read())
             file_paths.append(temp_image_path)
         logger.debug(f"Received images: {file_paths}, prompt: {prompt_text}")
 
         sv.image_url = file_paths
         sv.slice_index = 57  # Example slice index (adjust as needed) - This should come from Slicer!!!
-        # Save uploaded images to a temporary file
-        CACHED_IMAGES.cache(sv.image_url)
 
         sv, chat_history = generator.process_prompt(prompt_text, sv, chat_history)
 
