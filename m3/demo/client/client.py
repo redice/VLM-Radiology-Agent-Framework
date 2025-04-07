@@ -1,17 +1,28 @@
+import argparse
+import os
+import time
+from typing import List, Dict, Optional, Union
+import logging
+
 import requests
+from dotenv import load_dotenv
+
 from sklearn.metrics import confusion_matrix
 # import matplotlib.pyplot as plt
 import seaborn as sns
-import argparse
 from pathlib import Path
 import glob
 import pandas as pd
-from typing import List, Dict, Optional, Union
 import json
-import os
+
+load_dotenv()
+
+logger = logging.getLogger(__name__)
+server_host = os.getenv("SERVER_HOST")
+port = os.getenv("PORT")
 
 class VilaM3Client:
-    def __init__(self, base_url: str = "http://116.50.47.47:52409", 
+    def __init__(self, base_url: str = "http://0.0.0.0:8585", 
                 openai_api_key: str = None,
                 openai_endpoint: str = "https://api.openai.com/v1/chat/completions",
                 openai_model: str = "gpt-4o-mini"):
@@ -22,11 +33,13 @@ class VilaM3Client:
         
     def send_single_image(self, image_path: str, prompt_text: str = None) -> Dict:
         """Send a single image for inference with optional user message"""
+        logger.debug(f"image_path: {image_path}")
+
         with open(image_path, 'rb') as f:
-            files = {'file': (Path(image_path).name, f)}
+            files = {'image_file': (Path(image_path).name, f)}
             data = {'prompt_text': prompt_text} if prompt_text else None
             try:
-                response = requests.post(f"{self.base_url}/single", image_file=files, data=data)
+                response = requests.post(f"{self.base_url}/single", files=files, data=data)
                 response.raise_for_status()
                 return response.json()
             except requests.exceptions.RequestException as e:
@@ -377,6 +390,27 @@ class VilaM3Client:
         return response.json()
 
 def main():
+    logfile = os.getenv("LOGFILE")
+    logging.basicConfig(
+        filename=logfile,
+        level=logging.DEBUG,
+        format="%(asctime)s,%(msecs)d %(levelname)-8s [%(pathname)s:%(lineno)d in " "function %(funcName)s] %(message)s",
+        datefmt="%Y-%m-%d:%H:%M:%S",
+    )
+
+    # Create console handler and set level to debug
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
+
+    # Create formatter
+    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+
+    # Add formatter to ch
+    ch.setFormatter(formatter)
+
+    # Add ch to logger
+    logger.addHandler(ch)
+
     parser = argparse.ArgumentParser(description='Vila M3 Client')
     subparsers = parser.add_subparsers(dest='command', required=True)
     
@@ -410,15 +444,27 @@ def main():
     # health_parser = subparsers.add_parser('health')
     
     args = parser.parse_args()
+    logger.debug(f"args: {args}")
     
+    base_url = f"{server_host}:{port}"
     # Only pass OpenAI params for batch command
     if args.command == 'single':
-        client = VilaM3Client()
+        client = VilaM3Client(base_url)
         result = client.send_single_image(args.image_path, args.prompt_text)
-        print(json.dumps(result, indent=2))
-        
+        logger.info(json.dumps(result, indent=2))
+
+        predictions = []
+        for res in result['choices']:
+            if 'content' in res['message']['content']:
+                inner_contents = res['message']['content']['content']
+                logger.debug(f"inner_contents[0]: {inner_contents[0]}")
+                predictions.append({
+                    'text': inner_contents[0]['text']
+                })
+        logger.debug(f"single image result: {predictions}")
     elif args.command == 'batch':
         client = VilaM3Client(
+            base_url,
             openai_api_key=args.openai_api_key,
             openai_endpoint=args.openai_endpoint,
             openai_model=args.openai_model
@@ -440,7 +486,7 @@ def main():
         
         # Process batch
         result = client.send_batch_images(image_paths, args.prompt_text)
-        print(json.dumps(result, indent=2))
+        logger.info(json.dumps(result, indent=2))
         
         # Handle confusion matrix if requested
         if args.ground_truth_excel and args.labels:
@@ -449,11 +495,12 @@ def main():
             
             # Prepare predictions with filenames
             predictions = []
-            for res in result['results']:
-                if 'result' in res:
+            for res in result['choices']:
+                if 'content' in res['message']['content']:
+                    inner_contents = res['message']['content']['content']
+                    logger.debug(f"inner_contents[0]: {inner_contents[0]}")
                     predictions.append({
-                        'filename': res['filename'],
-                        'result': res['result']
+                        'text': inner_contents[0]['text']
                     })
             
             # Get voting threshold from args or use default
@@ -463,15 +510,15 @@ def main():
             cm_result = client.calculate_confusion_matrix(
                 predictions, ground_truth, args.labels, voting_threshold
             )
-            print("\nConfusion Matrix Results:")
-            print(f"- Matrix plot: {cm_result['plot_path']}")
-            print(f"- Detailed report: {cm_result['report_path']}")
-            print(f"- Total cases: {cm_result['total_cases']}")
-            print(f"- Total images: {cm_result['total_images']}")
+            logger.debug("\nConfusion Matrix Results:")
+            logger.debug(f"- Matrix plot: {cm_result['plot_path']}")
+            logger.debug(f"- Detailed report: {cm_result['report_path']}")
+            logger.debug(f"- Total cases: {cm_result['total_cases']}")
+            logger.debug(f"- Total images: {cm_result['total_images']}")
             
     elif args.command == 'health':
         result = client.health_check()
-        print(json.dumps(result, indent=2))
+        logger.debug(json.dumps(result, indent=2))
 
 if __name__ == '__main__':
     main()

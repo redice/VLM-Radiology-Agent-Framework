@@ -14,6 +14,8 @@ python client.py batch '<圖片png父級目錄(兩層)>' \
 
 single imagle
 ```
-python client.py single '~/working/project/builds/ai/models/monai/cuda/files/small_samples/small_sample_chest_pa/11403050086' \
+python client.py single '/Users/redice/working/project/builds/ai/models/monai/cuda/files/small_samples/small_sample_chest_pa/11403050086/A24c5d14.png' \
   --prompt_text "Perform a diagnostic interpretation of the chest X-ray and precisely delineate the location of any observed pulmonary nodules. Please include a clear initial assessment of whether the CXR appears normal or abnormal."
 ```
+
+multiple 
