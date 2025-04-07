@@ -1,6 +1,6 @@
 import requests
 from sklearn.metrics import confusion_matrix
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import seaborn as sns
 import argparse
 from pathlib import Path
@@ -10,8 +10,8 @@ from typing import List, Dict, Optional, Union
 import json
 import os
 
-class MedRAXClient:
-    def __init__(self, base_url: str = "http://0.0.0.0:8585", 
+class VilaM3Client:
+    def __init__(self, base_url: str = "http://116.50.47.47:52409", 
                 openai_api_key: str = None,
                 openai_endpoint: str = "https://api.openai.com/v1/chat/completions",
                 openai_model: str = "gpt-4o-mini"):
@@ -20,13 +20,13 @@ class MedRAXClient:
         self.openai_endpoint = openai_endpoint
         self.openai_model = openai_model
         
-    def send_single_image(self, image_path: str, user_message: str = None) -> Dict:
+    def send_single_image(self, image_path: str, prompt_text: str = None) -> Dict:
         """Send a single image for inference with optional user message"""
         with open(image_path, 'rb') as f:
             files = {'file': (Path(image_path).name, f)}
-            data = {'user_message': user_message} if user_message else None
+            data = {'prompt_text': prompt_text} if prompt_text else None
             try:
-                response = requests.post(f"{self.base_url}/execute", files=files, data=data)
+                response = requests.post(f"{self.base_url}/single", image_file=files, data=data)
                 response.raise_for_status()
                 return response.json()
             except requests.exceptions.RequestException as e:
@@ -37,7 +37,7 @@ class MedRAXClient:
                     "filename": image_path
                 }
     
-    def send_batch_images(self, image_paths: List[str], user_message: str = None) -> Dict:
+    def send_batch_images(self, image_paths: List[str], prompt_text: str = None) -> Dict:
         """Send multiple images for batch inference with optional user message"""
         results = []
         temp_files = []
@@ -61,7 +61,7 @@ class MedRAXClient:
                 return {"status": "failed", "results": results}
                 
             # Make the request with all file contents
-            data = {'user_message': user_message} if user_message else None
+            data = {'prompt_text': prompt_text} if prompt_text else None
             response = requests.post(f"{self.base_url}/batch_inference", files=temp_files, data=data)
             response.raise_for_status()
             batch_result = response.json()
@@ -339,14 +339,14 @@ class MedRAXClient:
         cm = confusion_matrix(y_true, y_pred, labels=labels)
         
         # Plot confusion matrix
-        plt.figure(figsize=(10, 8))
-        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
-                   xticklabels=labels, yticklabels=labels)
-        plt.xlabel('Predicted')
-        plt.ylabel('Actual')
-        plt.title('Confusion Matrix (Case Level)')
-        plt.savefig('confusion_matrix.png')
-        plt.close()
+        # plt.figure(figsize=(10, 8))
+        # sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
+        #            xticklabels=labels, yticklabels=labels)
+        # plt.xlabel('Predicted')
+        # plt.ylabel('Actual')
+        # plt.title('Confusion Matrix (Case Level)')
+        # plt.savefig('confusion_matrix.png')
+        # plt.close()
 
         # Save detailed reports
         case_df = pd.DataFrame(case_report_data)
@@ -377,48 +377,48 @@ class MedRAXClient:
         return response.json()
 
 def main():
-    parser = argparse.ArgumentParser(description='MedRAX Client')
+    parser = argparse.ArgumentParser(description='Vila M3 Client')
     subparsers = parser.add_subparsers(dest='command', required=True)
     
     # Single image parser
     single_parser = subparsers.add_parser('single')
     single_parser.add_argument('image_path', help='Path to image file')
-    single_parser.add_argument('--user-message', help='Optional message to include with the image')
+    single_parser.add_argument('--prompt_text', help='Optional message to include with the image')
     
     # Batch images parser
-    batch_parser = subparsers.add_parser('batch')
-    batch_parser.add_argument('path', help='Path to image file or directory')
-    batch_parser.add_argument('--recursive', action='store_true', 
-                            help='Recursively scan directory for PNG files')
-    batch_parser.add_argument('--user-message', help='Optional message to include with all images')
-    batch_parser.add_argument('--ground_truth_excel', 
-                            help='Excel file containing ground truth labels')
-    batch_parser.add_argument('--labels', nargs='+',
-                            help='Class labels for confusion matrix')
-    batch_parser.add_argument('--voting-threshold', type=float, default=0.5,
-                            help='Threshold for case-level voting (default: 0.5)')
-    batch_parser.add_argument('--openai-api-key',
-                            help='OpenAI API key for enhanced classification')
-    batch_parser.add_argument('--openai-endpoint',
-                            help='OpenAI API endpoint',
-                            default="https://api.openai.com/v1/chat/completions")
-    batch_parser.add_argument('--openai-model',
-                            help='OpenAI model name',
-                            default="gpt-4o-mini")
+    # batch_parser = subparsers.add_parser('batch')
+    # batch_parser.add_argument('path', help='Path to image file or directory')
+    # batch_parser.add_argument('--recursive', action='store_true', 
+    #                         help='Recursively scan directory for PNG files')
+    # batch_parser.add_argument('--prompt_text', help='Optional message to include with all images')
+    # batch_parser.add_argument('--ground_truth_excel', 
+    #                         help='Excel file containing ground truth labels')
+    # batch_parser.add_argument('--labels', nargs='+',
+    #                         help='Class labels for confusion matrix')
+    # batch_parser.add_argument('--voting-threshold', type=float, default=0.5,
+    #                         help='Threshold for case-level voting (default: 0.5)')
+    # batch_parser.add_argument('--openai-api-key',
+    #                         help='OpenAI API key for enhanced classification')
+    # batch_parser.add_argument('--openai-endpoint',
+    #                         help='OpenAI API endpoint',
+    #                         default="https://api.openai.com/v1/chat/completions")
+    # batch_parser.add_argument('--openai-model',
+    #                         help='OpenAI model name',
+    #                         default="gpt-4o-mini")
     
-    # Health check parser
-    health_parser = subparsers.add_parser('health')
+    # # Health check parser
+    # health_parser = subparsers.add_parser('health')
     
     args = parser.parse_args()
     
     # Only pass OpenAI params for batch command
     if args.command == 'single':
-        client = MedRAXClient()
-        result = client.send_single_image(args.image_path, args.user_message)
+        client = VilaM3Client()
+        result = client.send_single_image(args.image_path, args.prompt_text)
         print(json.dumps(result, indent=2))
         
     elif args.command == 'batch':
-        client = MedRAXClient(
+        client = VilaM3Client(
             openai_api_key=args.openai_api_key,
             openai_endpoint=args.openai_endpoint,
             openai_model=args.openai_model
@@ -439,7 +439,7 @@ def main():
         # No need to add voting threshold parameter here as it's already defined above
         
         # Process batch
-        result = client.send_batch_images(image_paths, args.user_message)
+        result = client.send_batch_images(image_paths, args.prompt_text)
         print(json.dumps(result, indent=2))
         
         # Handle confusion matrix if requested
